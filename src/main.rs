@@ -1,4 +1,5 @@
 pub mod core;
+pub mod cli_ui;
 //define some basis const here
 const MEMORY_LENGTH :usize = 4096;
 /*define RAM size of VM in Bytes */
