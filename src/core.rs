@@ -1,3 +1,5 @@
+use std::{collections::BTreeMap};
+
 #[derive(Debug)]
 pub struct Core{
     reg_high:[i16;16],
@@ -5,7 +7,7 @@ pub struct Core{
     coms:i16,
     pc:i16,
     debug:bool,
-    memory:Vec<u8>
+    memory: BTreeMap<usize,u8>
 }
 enum Status {
     Normal,
@@ -218,28 +220,50 @@ impl Inst {
 }
 impl Core {
     pub fn new_from_vec(program:&Vec<u8>,debug_flag:bool)->Core{
+        let mut memory = BTreeMap::new();
+        for i in 0..program.len(){
+            memory.insert(i, program[i]);
+        }
         return Core { 
             reg_high: [0;16], 
             reg_low: [0;16], 
             coms: 0, 
             pc: 0,
             debug:debug_flag, 
-            memory: program.to_vec() 
+            memory
         }
     }
     pub fn new_from_array(program:&[u8],debug_flag:bool)->Core{
+        let mut memory = BTreeMap::new();
+        for i in 0..program.len(){
+            memory.insert(i, program[i]);
+        }
         return Core { 
             reg_high: [0;16], 
             reg_low: [0;16], 
             coms: 0, 
             pc: 0,
             debug:debug_flag, 
-            memory: program.to_vec() 
+            memory
         }
     }
     fn exec(&mut self) ->Status{
-        let raw_inst = [self.memory[self.pc as usize],self.memory[(self.pc+1) as usize]];
-        let decoded_inst = Inst::decode(raw_inst);
+
+        let raw_inst_low = match self.memory.get(&(self.pc as usize)){
+            Some(t)=> *t,
+            None => {
+                self.memory.insert(self.pc as usize, 0u8);
+                0u8
+            }
+        };
+        let raw_inst_high = match self.memory.get(&((self.pc+1) as usize)){
+            Some(t)=> *t,
+            None => {
+                self.memory.insert(self.pc as usize, 0u8);
+                0u8
+            }
+        };
+        let decoded_inst = Inst::decode([raw_inst_low,raw_inst_high]);
         let rd = decoded_inst.rd as usize;
         let rs1 = decoded_inst.rs1 as usize;
         let rs2 = decoded_inst.rs2 as usize;
@@ -382,10 +406,38 @@ impl Core {
             Opcode::LH =>{
                 if group {
                     let addr = (self.reg_high[rs1]+imm)as usize;
-                    self.reg_high[rd] = self.memory[addr] as i16 +((self.memory[addr+1]as i16) << 8 );                     
+                    let data_mem_l = match self.memory.get(&(addr as usize)){
+                        Some(t)=> *t,
+                        None => {
+                            self.memory.insert(self.pc as usize, 0u8);
+                            0u8
+                        }
+                    };
+                    let data_mem_h = match self.memory.get(&((addr+1) as usize)){
+                        Some(t)=> *t,
+                        None => {
+                            self.memory.insert(self.pc as usize, 0u8);
+                            0u8
+                        }
+                    };
+                    self.reg_high[rd] = data_mem_l as i16 +((data_mem_h as i16) << 8 );                     
                 }else {
                     let addr = (self.reg_low[rs1]+imm)as usize;
-                    self.reg_low[rd] = self.memory[addr] as i16 +((self.memory[addr+1]as i16) << 8 );  
+                    let data_mem_l = match self.memory.get(&(addr as usize)){
+                        Some(t)=> *t,
+                        None => {
+                            self.memory.insert(self.pc as usize, 0u8);
+                            0u8
+                        }
+                    };
+                    let data_mem_h = match self.memory.get(&((addr+1) as usize)){
+                        Some(t)=> *t,
+                        None => {
+                            self.memory.insert(self.pc as usize, 0u8);
+                            0u8
+                        }
+                    };
+                    self.reg_low[rd] = data_mem_l as i16 +((data_mem_h as i16) << 8 );
                 }
                 if debug {println!("PC={:0>8X},Tpye = LH, rs1 ={}, rd = {}, group = {}, imm = {}",self.pc,rs1,rd,group,imm);}
                 self.pc = self.pc+2;
@@ -393,19 +445,12 @@ impl Core {
                 
             },
             Opcode::SH =>{
-                if group {
-                    let addr = (self.reg_high[rs1]+imm)as usize;
-                    let m0_raw = self.reg_high[rs2] as u8;
-                    let m1_raw = ((self.reg_high[rs2] as u16) >>8) as u8;
-                    self.memory[addr] = m0_raw;
-                    self.memory[addr+1] = m1_raw;
-                }else {
-                    let addr = (self.reg_low[rs1]+imm)as usize;
-                    let m0_raw = self.reg_low[rs2] as u8;
-                    let m1_raw = ((self.reg_low[rs2] as u16) >>8) as u8;
-                    self.memory[addr] = m0_raw;
-                    self.memory[addr+1] = m1_raw;  
-                }
+                let addr = if group {(self.reg_high[rs1]+imm)as usize} else {(self.reg_low[rs1]+imm)as usize};
+                let m0_raw = if group {self.reg_high[rs2] as u8} else {self.reg_low[rs2] as u8};
+                let m1_raw = if group {((self.reg_high[rs2] as u16) >>8) as u8}else{((self.reg_low[rs2] as u16) >>8) as u8};
+                self.memory.insert(addr, m0_raw);
+                self.memory.insert(addr+1, m1_raw);
+
                 if debug {println!("PC={:0>8X},Tpye = SH, rs1 ={}, rs2 = {}, group = {}, imm = {}",self.pc,rs1,rs2,group,imm);}
                 self.pc = self.pc+2;
                 status = Status::Normal;
@@ -496,5 +541,8 @@ impl Core {
     }
     pub fn get_coms(&self) ->i16{
         self.coms
+    }
+    pub fn get_memory(&self) ->BTreeMap<usize, u8> {
+        self.memory.clone()
     }
 }

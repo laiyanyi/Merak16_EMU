@@ -25,6 +25,7 @@ fn main(){
     core.run();
 
     //output result by variable debug output{:?} or just output it
+    println!("memory = {:?}",core.get_memory());//reg high group
     println!("reg high group = {:?}",core.get_reg_high());//reg high group
     println!("reg low group = {:?}",core.get_reg_low());//reg low group
     println!("reg a0 = {}",core.get_reg_low()[0]);//reg low group
