@@ -7,12 +7,12 @@ const DEBUG_ENABLE :bool = true;
 */
 fn main(){
     //load program in raw Binary in an array of unsigned Byte
-    let mut program = [255u8;MEMORY_LENGTH];
+    let mut program = vec![255u8;MEMORY_LENGTH];
     program[0] = 220;//
     program[1] = 93;//LI a4,-5
     
     //create a Core struct with the program you load
-    let mut core = Core::new(program);
+    let mut core = Core::new_from_vec(&program,DEBUG_ENABLE);
     
     //run step by step
     
@@ -37,7 +37,7 @@ struct Core{
     coms:i16,
     pc:i16,
     debug:bool,
-    memory:[u8;MEMORY_LENGTH]
+    memory:Vec<u8>
 }
 enum Status {
     Normal,
@@ -249,14 +249,24 @@ impl Inst {
     }
 }
 impl Core {
-    fn new(program:[u8;MEMORY_LENGTH])->Core{
+    fn new_from_vec(program:&Vec<u8>,debug_flag:bool)->Core{
         return Core { 
             reg_high: [0;16], 
             reg_low: [0;16], 
             coms: 0, 
             pc: 0,
-            debug:DEBUG_ENABLE, 
-            memory: program 
+            debug:debug_flag, 
+            memory: program.to_vec() 
+        }
+    }
+    fn new_from_array(program:&[u8],debug_flag:bool)->Core{
+        return Core { 
+            reg_high: [0;16], 
+            reg_low: [0;16], 
+            coms: 0, 
+            pc: 0,
+            debug:debug_flag, 
+            memory: program.to_vec() 
         }
     }
     fn exec(&mut self) ->Status{
