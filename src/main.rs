@@ -8,8 +8,8 @@ const DEBUG_ENABLE :bool = true;
 fn main(){
     //load program in raw Binary in an array of unsigned Byte
     let mut program = [255u8;MEMORY_LENGTH];
-    program[1] = 220;//
-    program[0] = 93;//LI a4,-5
+    program[0] = 220;//
+    program[1] = 93;//LI a4,-5
     
     //create a Core struct with the program you load
     let mut core = Core::new(program);
@@ -79,8 +79,8 @@ struct Inst{
 }
 impl Inst {
     fn decode(raw:[u8;2])->Inst{
-        let high = Inst::bit_split(raw[0]);
-        let low = Inst::bit_split(raw[1]);
+        let high = Inst::bit_split(raw[1]);
+        let low = Inst::bit_split(raw[0]);
 
         let mut rs1_raw = [false;8];
         rs1_raw[..3].copy_from_slice(&low[3..6]);
