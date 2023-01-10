@@ -49,7 +49,7 @@ impl Emu {
                     }
                     ,
                     "show" => {
-                        match self.term.write_line("Enter regi, regx or memory"){
+                        match self.term.write_line("Enter regi, regx or memory."){
                             Ok(_) =>{},
                             Err(_) => panic!("write_fail")
                         };
@@ -95,7 +95,7 @@ impl Emu {
                                 };
                             },
                             "memory" =>{
-                                match self.term.write_line("Enter Start Addr in Hex(Without 0x)?"){
+                                match self.term.write_line("Enter Start Addr in Hex(Without 0x)."){
                                     Ok(_) =>{},
                                     Err(_) => panic!("write_fail")
                                 };
@@ -119,7 +119,7 @@ impl Emu {
                                         };
                                     }
                                 }
-                                match self.term.write_line("Enter End Addr in Hex(Without 0x)?"){
+                                match self.term.write_line("Enter End Addr in Hex(Without 0x)."){
                                     Ok(_) =>{},
                                     Err(_) => panic!("write_fail")
                                 };
@@ -199,7 +199,7 @@ impl Emu {
                         break;
                     },
                     "help" =>{
-                        match self.term.write_line("HELP TEST"){//TODO
+                        match self.term.write_line("HELP TEXT TODO"){//TODO
                             Ok(_) =>{},
                             Err(_) => panic!("write_fail")
                         };
