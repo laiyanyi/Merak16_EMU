@@ -16,5 +16,6 @@
 	>>show memory in inputed range
 * edit	
 >	todo
-
+* quit	
+>	leave program
      
