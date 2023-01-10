@@ -8,7 +8,6 @@ pub mod core;
     PC=00000000,Tpye = LI, rd = 4, group = false, imm = -5
 */
 fn main(){
-    println!("{}i16 {}u16",-1i16,-1i16 as u16);
     let mut emu = cli_ui::Emu::init();
     emu.run_args(false, None);
     emu.exec();

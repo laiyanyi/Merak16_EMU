@@ -49,6 +49,10 @@ impl Emu {
                     }
                     ,
                     "show" => {
+                        match self.term.write_line("Enter regi, regx or memory"){
+                            Ok(_) =>{},
+                            Err(_) => panic!("write_fail")
+                        };
                         buf = match self.term.read_line(){
                             Ok(t) =>t,
                             Err(_)=>String::new()
