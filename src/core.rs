@@ -219,6 +219,16 @@ impl Inst {
     }
 }
 impl Core {
+    pub fn new() ->Core{
+        Core { 
+            reg_high: [0;16], 
+            reg_low: [0;16], 
+            coms: 0, 
+            pc: 0,
+            debug:false, 
+            memory:BTreeMap::new()
+        }
+    }
     pub fn new_from_vec(program:&Vec<u8>,debug_flag:bool)->Core{
         let mut memory = BTreeMap::new();
         for i in 0..program.len(){
@@ -544,5 +554,16 @@ impl Core {
     }
     pub fn get_memory(&self) ->BTreeMap<usize, u8> {
         self.memory.clone()
+    }
+    pub fn enable_debug(&mut self){
+        self.debug = true;
+    }
+    pub fn disable_debug(&mut self){
+        self.debug = false;
+    }
+    pub fn load_memory(&mut self,program:&[u8]){
+        for i in 0..program.len(){
+            self.memory.insert(i, program[i]);
+        }
     }
 }
