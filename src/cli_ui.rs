@@ -103,7 +103,7 @@ impl Emu {
                                     Ok(t) =>t,
                                     Err(_)=>String::new()
                                 };
-                                let mut s_a;
+                                let s_a;
                                 match i16::from_str_radix(&buf,16){
                                     Ok(t)=>{
                                         s_a =t;
@@ -127,7 +127,7 @@ impl Emu {
                                     Ok(t) =>t,
                                     Err(_)=>String::new()
                                 };
-                                let mut e_a;
+                                let e_a;
                                 match i16::from_str_radix(&buf,16){
                                     Ok(t)=>{
                                         e_a =t;
@@ -143,7 +143,7 @@ impl Emu {
                                         };
                                     }
                                 }
-                                if(e_a<s_a){
+                                if e_a<s_a {
                                     let mut temp = String::new();
                                         temp.push_str(RED);
                                         temp.push_str("error end addr smaller than start!");
