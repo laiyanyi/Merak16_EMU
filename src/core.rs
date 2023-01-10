@@ -2,10 +2,10 @@ use std::{collections::BTreeMap};
 
 #[derive(Debug)]
 pub struct Core{
-    reg_high:[i16;16],
-    reg_low:[i16;16],
+    reg_high:[i16;8],
+    reg_low:[i16;8],
     coms:i16,
-    pc:i16,
+    pc:u16,
     debug:bool,
     memory: BTreeMap<usize,u8>
 }
@@ -14,6 +14,7 @@ enum Status {
     HALT,
     Exp
 }
+#[derive(PartialEq,Debug)]
 enum Opcode {
     AND,
     OR,
@@ -53,12 +54,12 @@ impl Inst {
         let low = Inst::bit_split(raw[0]);
 
         let mut rs1_raw = [false;8];
-        rs1_raw[..3].copy_from_slice(&low[3..6]);
+        rs1_raw[0..3].copy_from_slice(&low[3..6]);
         let mut rs2_raw = [false;8];
-        rs2_raw[..2].copy_from_slice(&low[6..8]);
-        rs2_raw[3] = high[0];
+        rs2_raw[0..2].copy_from_slice(&low[6..8]);
+        rs2_raw[2] = high[0];
         let mut rd_raw = [false;8];
-        rd_raw[..3].copy_from_slice(&low[0..3]);
+        rd_raw[0..3].copy_from_slice(&low[0..3]);
         let rs1 = Inst::bit_fuse8(rs1_raw);
         let rs2 = Inst::bit_fuse8(rs2_raw);
         let rd = Inst::bit_fuse8(rd_raw);
@@ -121,7 +122,7 @@ impl Inst {
                     imm_raw[0..3].copy_from_slice(&low[3..6]);
                     imm_raw[3..5].copy_from_slice(&low[6..8]);
                     imm_raw[5] = high[0];
-                    imm_raw[6..8].copy_from_slice(&low[2..4]);
+                    imm_raw[6..9].copy_from_slice(&high[2..5]);
                     imm = Inst::bit_fuse16(imm_raw) as i16;
                 },
                 //br j
@@ -134,23 +135,23 @@ impl Inst {
                             _ => Opcode::NotAInst,
                         },
                         (false,false,true) => {
-                            imm_raw = [high[0];16];
-                            imm_raw[0..3].copy_from_slice(&low[0..3]);
-                            imm_raw[3..5].copy_from_slice(&low[6..8]);
+                            imm_raw = [high[1];16];
+                            imm_raw[0..8].copy_from_slice(&low);
+                            imm_raw[8] = high[0];
                             imm = Inst::bit_fuse16(imm_raw) as i16;
                             Opcode::BOZ
                         },
                         (false,true,false) => {
-                            imm_raw = [high[0];16];
-                            imm_raw[0..3].copy_from_slice(&low[0..3]);
-                            imm_raw[3..5].copy_from_slice(&low[6..8]);
+                            imm_raw = [high[1];16];
+                            imm_raw[0..8].copy_from_slice(&low);
+                            imm_raw[8] = high[0];
                             imm = Inst::bit_fuse16(imm_raw) as i16;
                             Opcode::BONZ
                         },
                         (true,false,false) => {
-                            imm_raw = [high[0];16];
-                            imm_raw[0..3].copy_from_slice(&low[0..3]);
-                            imm_raw[3..5].copy_from_slice(&low[6..8]);
+                            imm_raw = [high[1];16];
+                            imm_raw[0..8].copy_from_slice(&low);
+                            imm_raw[8] = high[0];
                             imm = Inst::bit_fuse16(imm_raw) as i16;
                             Opcode::JAL
                         },
@@ -196,7 +197,7 @@ impl Inst {
             if raw[i] {
                 res += base;
             }
-            base *= 2;
+            base <<= 1;
         }
         if raw[7] {
             res += base;
@@ -221,40 +222,12 @@ impl Inst {
 impl Core {
     pub fn new() ->Core{
         Core { 
-            reg_high: [0;16], 
-            reg_low: [0;16], 
+            reg_high: [0;8], 
+            reg_low: [0;8], 
             coms: 0, 
             pc: 0,
             debug:false, 
             memory:BTreeMap::new()
-        }
-    }
-    pub fn new_from_vec(program:&Vec<u8>,debug_flag:bool)->Core{
-        let mut memory = BTreeMap::new();
-        for i in 0..program.len(){
-            memory.insert(i, program[i]);
-        }
-        return Core { 
-            reg_high: [0;16], 
-            reg_low: [0;16], 
-            coms: 0, 
-            pc: 0,
-            debug:debug_flag, 
-            memory
-        }
-    }
-    pub fn new_from_array(program:&[u8],debug_flag:bool)->Core{
-        let mut memory = BTreeMap::new();
-        for i in 0..program.len(){
-            memory.insert(i, program[i]);
-        }
-        return Core { 
-            reg_high: [0;16], 
-            reg_low: [0;16], 
-            coms: 0, 
-            pc: 0,
-            debug:debug_flag, 
-            memory
         }
     }
     fn exec(&mut self) ->Status{
@@ -436,14 +409,14 @@ impl Core {
                     let data_mem_l = match self.memory.get(&(addr as usize)){
                         Some(t)=> *t,
                         None => {
-                            self.memory.insert(self.pc as usize, 0u8);
+                            self.memory.insert(addr as usize, 0u8);
                             0u8
                         }
                     };
                     let data_mem_h = match self.memory.get(&((addr+1) as usize)){
                         Some(t)=> *t,
                         None => {
-                            self.memory.insert(self.pc as usize, 0u8);
+                            self.memory.insert((addr+1) as usize, 0u8);
                             0u8
                         }
                     };
@@ -486,26 +459,26 @@ impl Core {
             }
             Opcode::BOZ =>{
                 if debug {println!("PC={:0>8X},Tpye = BOZ, imm ={}",self.pc,imm);}
-                self.pc = if self.coms == 0 {self.pc + imm } else {self.pc +2};
+                self.pc = if self.coms == 0 {(self.pc as i16 + imm) as u16  } else {self.pc +2};
                 status = Status::Normal;
                 
             }
             Opcode::BONZ =>{
                 if debug {println!("PC={:0>8X},Tpye = BONZ, imm ={}",self.pc,imm);}
-                self.pc = if self.coms != 0 {self.pc + imm } else {self.pc +2};
+                self.pc = if self.coms != 0 {(self.pc as i16 + imm )as u16 } else {self.pc +2};
                 status = Status::Normal;
             }
             Opcode::JAL =>{
                 if debug {println!("PC={:0>8X},Tpye = JAL, imm ={}",self.pc,imm);}
-                self.reg_low[15] = self.pc+2;
-                self.pc = self.pc + imm;
+                self.reg_high[7] = (self.pc+2) as i16;
+                self.pc = (self.pc as i16 + imm )as u16;
                 status = Status::Normal;
             }
             Opcode::JALR =>{
                 let addr = if group {self.reg_high[rs1]+imm} else {self.reg_low[rs1]+imm};
                 if debug {println!("PC={:0>8X},Tpye = JALR, rs1={}, group = {}, imm ={}",self.pc,rs1,group,imm);}
-                self.reg_low[15] = self.pc+2;
-                self.pc = self.pc + addr;
+                self.reg_high[7] = (self.pc+2) as i16;
+                self.pc = (self.pc as i16 + addr )as u16;
                 status = Status::Normal;
             }
             Opcode::HALT =>{
@@ -540,13 +513,13 @@ impl Core {
             }
         }
     }
-    pub fn get_reg_low(&self) ->[i16;16]{
+    pub fn get_reg_low(&self) ->[i16;8]{
         self.reg_low
     }
-    pub fn get_reg_high(&self) ->[i16;16]{
+    pub fn get_reg_high(&self) ->[i16;8]{
         self.reg_high
     }
-    pub fn get_pc(&self) ->i16{
+    pub fn get_pc(&self) ->u16{
         self.pc
     }
     pub fn get_coms(&self) ->i16{
@@ -566,4 +539,190 @@ impl Core {
             self.memory.insert(i, program[i]);
         }
     }
+    pub fn read_memory_cell(&mut self,addr:&usize) -> u8{
+        match self.memory.get(addr){
+            Some(t)=> *t,
+            None => {
+                self.memory.insert(self.pc as usize, 0u8);
+                0u8
+            }
+        }
+    }
+}
+#[cfg(test)]
+mod decode_tests{
+    use crate::core::Opcode;
+    #[test]
+    fn decode_test_and(){
+        let inst=super::Inst::decode([209u8,0u8]);
+        assert_eq!(inst.op,Opcode::AND);
+        assert_eq!(inst.rd,1u8);
+        assert_eq!(inst.rs1,2u8);
+        assert_eq!(inst.rs2,3u8);
+    }
+    #[test]
+    fn decode_test_or(){
+        let inst=super::Inst::decode([209u8,4u8]);
+        assert_eq!(inst.op,Opcode::OR);
+        assert_eq!(inst.rd,1u8);
+        assert_eq!(inst.rs1,2u8);
+        assert_eq!(inst.rs2,3u8);
+    }
+    #[test]
+    fn decode_test_xor(){
+        let inst=super::Inst::decode([209u8,8u8]);
+        assert_eq!(inst.op,Opcode::XOR);
+        assert_eq!(inst.rd,1u8);
+        assert_eq!(inst.rs1,2u8);
+        assert_eq!(inst.rs2,3u8);
+    }
+    #[test]
+    fn decode_test_add(){
+        let inst=super::Inst::decode([209u8,12u8]);
+        assert_eq!(inst.op,Opcode::ADD);
+        assert_eq!(inst.rd,1u8);
+        assert_eq!(inst.rs1,2u8);
+        assert_eq!(inst.rs2,3u8);
+    }
+    #[test]
+    fn decode_test_sub(){
+        let inst=super::Inst::decode([209u8,16u8]);
+        assert_eq!(inst.op,Opcode::SUB);
+        assert_eq!(inst.rd,1u8);
+        assert_eq!(inst.rs1,2u8);
+        assert_eq!(inst.rs2,3u8);
+    }
+    #[test]
+    fn decode_test_sll(){
+        let inst=super::Inst::decode([209u8,20u8]);
+        assert_eq!(inst.op,Opcode::SLL);
+        assert_eq!(inst.rd,1u8);
+        assert_eq!(inst.rs1,2u8);
+        assert_eq!(inst.rs2,3u8);
+    }
+    #[test]
+    fn decode_test_sra(){
+        let inst=super::Inst::decode([209u8,24u8]);
+        assert_eq!(inst.op,Opcode::SRA);
+        assert_eq!(inst.rd,1u8);
+        assert_eq!(inst.rs1,2u8);
+        assert_eq!(inst.rs2,3u8);
+    }
+    #[test]
+    fn decode_test_srl(){
+        let inst=super::Inst::decode([209u8,28u8]);
+        assert_eq!(inst.op,Opcode::SRL);
+        assert_eq!(inst.rd,1u8);
+        assert_eq!(inst.rs1,2u8);
+        assert_eq!(inst.rs2,3u8);
+    }
+    #[test]
+    fn decode_test_reg(){
+        let inst=super::Inst::decode([255u8,1u8]);
+        assert_eq!(inst.op,Opcode::AND);
+        assert_eq!(inst.rd,7u8);
+        assert_eq!(inst.rs1,7u8);
+        assert_eq!(inst.rs2,7u8);
+    }
+    #[test]
+    fn decode_test_jal(){
+        let inst=super::Inst::decode([255u8,145u8]);
+        assert_eq!(inst.op,Opcode::JAL);
+        assert_eq!(inst.imm,511i16);
+    }
+    #[test]
+    fn decode_test_jalr(){
+        let inst=super::Inst::decode([255u8,148u8]);
+        assert_eq!(inst.op,Opcode::JALR);
+        assert_eq!(inst.rs1,7u8);
+        assert_eq!(inst.imm,31i16);
+    }
+    #[test]
+    fn decode_test_bonz(){
+        let inst=super::Inst::decode([255u8,137u8]);
+        assert_eq!(inst.op,Opcode::BONZ);
+        assert_eq!(inst.imm,511i16);
+    }
+    #[test]
+    fn decode_test_boz(){
+        let inst=super::Inst::decode([0u8,134u8]);
+        assert_eq!(inst.op,Opcode::BOZ);
+        assert_eq!(inst.imm,-512i16);
+    }
+    #[test]
+    fn decode_test_mvo(){
+        let inst=super::Inst::decode([145u8,34u8]);
+        assert_eq!(inst.op,Opcode::MVO);
+        assert!(inst.group);
+        assert_eq!(inst.rd,1u8);
+        assert_eq!(inst.rs1,2u8);
+        let inst=super::Inst::decode([145u8,32u8]);
+        assert_eq!(inst.op,Opcode::MVO);
+        assert!(!inst.group);
+        assert_eq!(inst.rd,1u8);
+        assert_eq!(inst.rs1,2u8);
+    }
+    #[test]
+    fn decode_test_mvh(){
+        let inst=super::Inst::decode([209u8,34u8]);
+        assert_eq!(inst.op,Opcode::MVH);
+        assert!(inst.group);
+        assert_eq!(inst.rd,1u8);
+        assert_eq!(inst.rs1,2u8);
+    }
+    #[test]
+    fn decode_test_not_com(){
+        let inst=super::Inst::decode([17u8,34u8]);
+        assert_eq!(inst.op,Opcode::NOT);
+        assert!(inst.group);
+        assert_eq!(inst.rd,1u8);
+        assert_eq!(inst.rs1,2u8);
+        let inst=super::Inst::decode([81u8,32u8]);
+        assert_eq!(inst.op,Opcode::COM);
+        assert!(!inst.group);
+        assert_eq!(inst.rd,1u8);
+        assert_eq!(inst.rs1,2u8);
+    }
+    #[test]
+    fn decode_test_lh(){
+        let inst=super::Inst::decode([209u8,38u8]);
+        assert_eq!(inst.op,Opcode::LH);
+        assert!(inst.group);
+        assert_eq!(inst.rd,1u8);
+        assert_eq!(inst.rs1,2u8);
+        assert_eq!(inst.imm,3i16);
+    }
+    #[test]
+    fn decode_test_sh(){
+        let inst=super::Inst::decode([139u8,42u8]);
+        assert_eq!(inst.op,Opcode::SH);
+        assert!(inst.group);
+        assert_eq!(inst.rs1,1u8);
+        assert_eq!(inst.rs2,2u8);
+        assert_eq!(inst.imm,3i16);
+    }
+    #[test]
+    fn decode_test_li(){
+        let inst=super::Inst::decode([249u8,79u8]);
+        assert_eq!(inst.op,Opcode::LI);
+        assert!(inst.group);
+        assert_eq!(inst.imm,255i16);
+    }
+    #[test]
+    fn decode_test_slt(){
+        let inst=super::Inst::decode([136u8,130u8]);
+        assert_eq!(inst.op,Opcode::SLT);     
+        assert!(inst.group);
+        assert_eq!(inst.rs1,1u8);
+        assert_eq!(inst.rs2,2u8);
+    }
+    #[test]
+    fn decode_test_soe(){
+        let inst=super::Inst::decode([137u8,130u8]);
+        assert_eq!(inst.op,Opcode::SOE);     
+        assert!(inst.group);
+        assert_eq!(inst.rs1,1u8);
+        assert_eq!(inst.rs2,2u8);
+    }
+
 }
